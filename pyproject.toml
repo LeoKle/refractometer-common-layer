@@ -4,9 +4,43 @@ version = "0.1.0"
 description = ""
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "httpx>=0.28.1",
+dependencies = ["httpx>=0.28.1"]
+
+[dependency-groups]
+dev = ["pytest>=9.0.1", "pytest-cov>=7.0.0", "ruff>=0.14.7"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+preview = true
+extend-exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "C90",   # mccabe
+    "I",     # isort
+    "ASYNC", # flake8-async
+    "B",     # flake8-bugbear
+    "BLE",   # flake8-blind-except
+    "COM",   # flake8-commas
+    "C4",    # flake8-comprehensions
+    "DTZ",   # flake8-datetimez
+    "EM",    # flake8-errmsg
+    "ICN",   # flake8-import-conventions
+    "PYI",   # flake8-pyi
+    "Q",     # flake8-quotes
+    "SIM",   # flake8-simplify
+    "TCH",   # flake8-typechecking
+    "PTH",   # flake8-use-pathlib
+    "UP",    # pyupgrade
+    "RUF",   # ruff-specific
+    "TRY",   # tryceratops
+    "FURB",  # refurb
 ]
+ignore = ["missing-trailing-comma"]
 
 [build-system]
 requires = ["hatchling"]
