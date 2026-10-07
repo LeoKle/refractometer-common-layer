@@ -1,20 +1,22 @@
 [project]
 name = "refractometer-common-layer"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "httpx>=0.28.1",
+    "httpx2>=2.13.1",
     "pydantic>=2.13.5",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.1",
- "pytest-cov>=7.0.0",
- "respx>=0.23.1",
- "ruff>=0.14.7",
+    "pytest-cov>=7.0.0",
+    "pytest-httpx2>=1.0.0",
+    "respx>=0.23.1",
+    "ruff>=0.14.7",
 ]
 
 [tool.ruff]
