@@ -11,33 +11,17 @@ from refractometer_common.result.api.requests import (
 )
 from refractometer_common.result.api.responses import SimulationResultResponse
 from refractometer_common.result.simulation_result import SimulationResult
+from refractometer_common.result.simulation_result_client_interface import (
+    SimulationResultClientConnectionException,
+    SimulationResultClientException,
+    SimulationResultClientInterface,
+    SimulationResultClientInvalidResponseException,
+    SimulationResultClientTimeoutException,
+    SimulationResultNotFoundException,
+)
 
 
-class SimulationResultClientException(Exception):
-    """Base exception for SimulationResultClient errors."""
-
-    def __init__(self, message: str, status_code: int | None = None):
-        super().__init__(message)
-        self.status_code = status_code
-
-
-class SimulationResultClientConnectionException(SimulationResultClientException):
-    """The service could not be reached (DNS, refused connection, network error)."""
-
-
-class SimulationResultClientTimeoutException(SimulationResultClientConnectionException):
-    """The service did not answer in time."""
-
-
-class SimulationResultNotFoundException(SimulationResultClientException):
-    """The requested simulation result does not exist."""
-
-
-class SimulationResultClientInvalidResponseException(SimulationResultClientException):
-    """The service answered, but the body was not valid JSON / not the expected schema."""
-
-
-class SimulationResultClient:
+class SimulationResultClient(SimulationResultClientInterface):
     def __init__(self, base_url: str, timeout: float = 10.0):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
