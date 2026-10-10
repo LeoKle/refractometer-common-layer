@@ -1,24 +1,18 @@
 import httpx
 from pydantic import ValidationError
 
+from refractometer_common.queue.queue_client_interface import (
+    QueueClientElementNotFoundException,
+    QueueClientException,
+    QueueClientInterface,
+)
+
 from .api.request import SimulationQueueRequest
 from .api.responses import SimulationQueueResponse
 from .queue_element import SimulationQueueElement, SimulationQueueElementCreate
 
 
-class QueueClientException(Exception):
-    """Base exception for QueueClient errors."""
-
-    pass
-
-
-class QueueClientElementNotFoundException(QueueClientException):
-    """Exception raised when a queued element is not found."""
-
-    pass
-
-
-class QueueClient:
+class QueueClient(QueueClientInterface):
     def __init__(self, base_url: str):
         self.base_url = base_url
 
