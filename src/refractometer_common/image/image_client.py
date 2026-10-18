@@ -25,7 +25,7 @@ class ImageClient(ImageClientInterface):
     def get_image(self, image_id: str) -> Image:
         response = self._request(
             "GET",
-            f"/api/result/{image_id}",
+            f"/api/image/{image_id}",
             not_found_message=f"Image '{image_id}' not found",
         )
         return self._to_domain(self._json(response), response.status_code)
@@ -37,7 +37,7 @@ class ImageClient(ImageClientInterface):
             msg = f"Invalid image create request: {ex}"
             raise ImageClientException(msg) from ex
 
-        response = self._request("POST", "/api/result", json=payload.model_dump(mode="json"))
+        response = self._request("POST", "/api/image", json=payload.model_dump(mode="json"))
 
         return self._to_post_result(self._json(response), response.status_code).id
 
