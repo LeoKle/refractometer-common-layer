@@ -7,12 +7,14 @@ from .simulation_result_client import (
     SimulationResultClientTimeoutException,
     SimulationResultNotFoundException,
 )
+from .simulation_result_client_interface import SimulationResultClientInterface
 
 __all__ = [
     "SimulationResult",
     "SimulationResultClient",
     "SimulationResultClientConnectionException",
     "SimulationResultClientException",
+    "SimulationResultClientInterface",
     "SimulationResultClientInvalidResponseException",
     "SimulationResultClientTimeoutException",
     "SimulationResultNotFoundException",
