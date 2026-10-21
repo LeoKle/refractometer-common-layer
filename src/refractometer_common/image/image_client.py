@@ -79,9 +79,7 @@ class ImageClient(ImageClientInterface):
         detail = ImageClient._extract_detail(response)
 
         if status == httpx2.codes.NOT_FOUND:
-            return ImageNotFoundException(
-                not_found_message or f"Simulation result not found: {detail}", status
-            )
+            return ImageNotFoundException(not_found_message or f"Image not found: {detail}", status)
 
         request = ex.request
         return ImageClientException(
