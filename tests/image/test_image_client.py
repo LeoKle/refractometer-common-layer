@@ -39,7 +39,7 @@ def create_request() -> CreateImageRequest:
 
 
 def test_get_image(client: ImageClient, httpx2_mock: respx.Router):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=200,
         json=IMAGE_RESPONSE,
     )
@@ -52,7 +52,7 @@ def test_get_image(client: ImageClient, httpx2_mock: respx.Router):
 
 
 def test_get_image_empty_matrix(client: ImageClient, httpx2_mock: respx.Router):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=200,
         json={"values": [], "shape": [0, 0]},
     )
@@ -65,7 +65,7 @@ def test_get_image_empty_matrix(client: ImageClient, httpx2_mock: respx.Router):
 
 def test_get_image_with_trailing_slash_base_url(httpx2_mock: respx.Router):
     client = ImageClient(f"{BASE_URL}/")
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=200,
         json=IMAGE_RESPONSE,
     )
@@ -74,7 +74,7 @@ def test_get_image_with_trailing_slash_base_url(httpx2_mock: respx.Router):
 
 
 def test_get_image_not_found(client: ImageClient, httpx2_mock: respx.Router):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=404,
         json=NOT_FOUND_RESPONSE,
     )
@@ -89,7 +89,7 @@ def test_get_image_not_found(client: ImageClient, httpx2_mock: respx.Router):
 
 
 def test_get_image_not_found_is_client_exception(client: ImageClient, httpx2_mock: respx.Router):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=404,
         json=NOT_FOUND_RESPONSE,
     )
@@ -100,7 +100,7 @@ def test_get_image_not_found_is_client_exception(client: ImageClient, httpx2_moc
 
 @pytest.mark.parametrize("status_code", [400, 401, 403, 500, 502, 503])
 def test_get_image_http_error(client: ImageClient, status_code: int, httpx2_mock: respx.Router):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=status_code,
         text="Something went wrong",
     )
@@ -116,7 +116,7 @@ def test_get_image_http_error(client: ImageClient, status_code: int, httpx2_mock
 
 
 def test_get_image_http_error_uses_detail_field(client: ImageClient, httpx2_mock: respx.Router):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=500,
         json={"detail": "database exploded"},
     )
@@ -128,7 +128,7 @@ def test_get_image_http_error_uses_detail_field(client: ImageClient, httpx2_mock
 def test_get_image_http_error_json_without_detail_falls_back_to_text(
     client: ImageClient, httpx2_mock: respx.Router
 ):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=500,
         json={"error": "boom"},
     )
@@ -138,7 +138,7 @@ def test_get_image_http_error_json_without_detail_falls_back_to_text(
 
 
 def test_get_image_invalid_json(client: ImageClient, httpx2_mock: respx.Router):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=200,
         text="<html>nope</html>",
     )
@@ -175,7 +175,7 @@ def test_get_image_invalid_json(client: ImageClient, httpx2_mock: respx.Router):
     ],
 )
 def test_get_image_unprocessable(client: ImageClient, body, httpx2_mock: respx.Router):
-    httpx2_mock.get(f"{BASE_URL}/api/result/{IMAGE_ID}").respond(
+    httpx2_mock.get(f"{BASE_URL}/api/image/{IMAGE_ID}").respond(
         status_code=200,
         json=body,
     )
@@ -193,7 +193,7 @@ def test_post_image(
     status_code: int,
     httpx2_mock: respx.Router,
 ):
-    httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+    httpx2_mock.post(f"{BASE_URL}/api/image").respond(
         status_code=status_code,
         json={"id": NEW_IMAGE_ID},
     )
@@ -206,7 +206,7 @@ def test_post_image_sends_expected_payload(
     create_request: CreateImageRequest,
     httpx2_mock: respx.Router,
 ):
-    route = httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+    route = httpx2_mock.post(f"{BASE_URL}/api/image").respond(
         status_code=200,
         json={"id": NEW_IMAGE_ID},
     )
@@ -225,7 +225,7 @@ def test_post_image_with_trailing_slash_base_url(
     create_request: CreateImageRequest, httpx2_mock: respx.Router
 ):
     client = ImageClient(f"{BASE_URL}/")
-    httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+    httpx2_mock.post(f"{BASE_URL}/api/image").respond(
         status_code=200,
         json={"id": NEW_IMAGE_ID},
     )
@@ -240,7 +240,7 @@ def test_post_image_http_error(
     status_code: int,
     httpx2_mock: respx.Router,
 ):
-    httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+    httpx2_mock.post(f"{BASE_URL}/api/image").respond(
         status_code=status_code,
         text="Something went wrong",
     )
@@ -256,7 +256,7 @@ def test_post_image_http_error(
 def test_post_image_validation_error_from_service(
     client: ImageClient, create_request: CreateImageRequest, httpx2_mock: respx.Router
 ):
-    httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+    httpx2_mock.post(f"{BASE_URL}/api/image").respond(
         status_code=422,
         json={"detail": [{"msg": "field required"}]},
     )
@@ -270,7 +270,7 @@ def test_post_image_validation_error_from_service(
 def test_post_image_not_found(
     client: ImageClient, create_request: CreateImageRequest, httpx2_mock: respx.Router
 ):
-    httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+    httpx2_mock.post(f"{BASE_URL}/api/image").respond(
         status_code=404,
         json=NOT_FOUND_RESPONSE,
     )
@@ -284,7 +284,7 @@ def test_post_image_not_found(
 def test_post_image_invalid_json(
     client: ImageClient, create_request: CreateImageRequest, httpx2_mock: respx.Router
 ):
-    httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+    httpx2_mock.post(f"{BASE_URL}/api/image").respond(
         status_code=200,
         text="<html>nope</html>",
     )
@@ -310,7 +310,7 @@ def test_post_image_unprocessable_response(
     body,
     httpx2_mock: respx.Router,
 ):
-    httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+    httpx2_mock.post(f"{BASE_URL}/api/image").respond(
         status_code=200,
         json=body,
     )
