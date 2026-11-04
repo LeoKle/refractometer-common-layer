@@ -1,6 +1,7 @@
 from .image import Image
 from .image_client import ImageClient
 from .image_client_interface import (
+    CreateImageRequest,
     ImageClientConnectionException,
     ImageClientException,
     ImageClientInterface,
@@ -10,6 +11,7 @@ from .image_client_interface import (
 )
 
 __all__ = [
+    "CreateImageRequest",
     "Image",
     "ImageClient",
     "ImageClientConnectionException",
