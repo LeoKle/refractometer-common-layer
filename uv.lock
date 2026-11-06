@@ -363,7 +363,6 @@ name = "refractometer-common-layer"
 version = "0.4.0"
 source = { editable = "." }
 dependencies = [
-    { name = "httpx" },
     { name = "httpx2" },
     { name = "pydantic" },
 ]
@@ -379,7 +378,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx2", specifier = ">=2.13.1" },
     { name = "pydantic", specifier = ">=2.13.5" },
 ]

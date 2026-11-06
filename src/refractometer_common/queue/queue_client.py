@@ -1,71 +1,58 @@
-import httpx
+import uuid
+from typing import Any
+
+import httpx2
 from pydantic import ValidationError
 
+from refractometer_common.queue.api.request import SimulationQueueRequest
+from refractometer_common.queue.api.responses import (
+    SimulationQueuePostResponse,
+    SimulationQueueResponse,
+)
 from refractometer_common.queue.queue_client_interface import (
+    QueueClientConnectionException,
     QueueClientElementNotFoundException,
     QueueClientException,
     QueueClientInterface,
+    QueueClientInvalidResponseException,
+    QueueClientTimeoutException,
 )
-
-from .api.request import SimulationQueueRequest
-from .api.responses import SimulationQueueResponse
-from .queue_element import SimulationQueueElement, SimulationQueueElementCreate
+from refractometer_common.queue.queue_element import (
+    SimulationQueueElement,
+    SimulationQueueElementCreate,
+)
 
 
 class QueueClient(QueueClientInterface):
-    def __init__(self, base_url: str):
-        self.base_url = base_url
+    def __init__(self, base_url: str, timeout: float = 10.0):
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
 
     def claim_element(self) -> SimulationQueueElement:
-        response = httpx.get(self.base_url + "/api/queue/claim")
-
-        if response.status_code != 200:
-            if response.status_code == 404:
-                msg = "No queued simulations available"
-                raise QueueClientElementNotFoundException(msg)
-            msg_0 = f"Failed to claim element: {response.text}"
-            raise QueueClientException(msg_0)
-
-        data = SimulationQueueResponse(**response.json())
-
-        try:
-            return SimulationQueueElement(**data.model_dump())
-        except ValidationError as ex:
-            msg = f"Validation error: {ex}"
-            raise QueueClientException(msg) from ex
+        response = self._request(
+            "GET",
+            "/api/queue/claim",
+            not_found_message="No queued simulations available",
+        )
+        return self._to_domain(self._json(response), response.status_code)
 
     def get_queued_simulations(self) -> list[SimulationQueueElement]:
-        response = httpx.get(self.base_url + "/api/queued")
+        response = self._request("GET", "/api/queued")
+        payload = self._json(response)
 
-        if response.status_code != 200:
-            msg = f"Failed to get queued simulations: {response.text}"
-            raise QueueClientException(msg)
+        if not isinstance(payload, list):
+            msg = f"Expected a list of queue elements, got {type(payload).__name__}"
+            raise QueueClientInvalidResponseException(msg, response.status_code)
 
-        data = [SimulationQueueResponse(**item) for item in response.json()]
+        return [self._to_domain(element, response.status_code) for element in payload]
 
-        try:
-            return [SimulationQueueElement(**item.model_dump()) for item in data]
-        except ValidationError as ex:
-            msg = f"Validation error: {ex}"
-            raise QueueClientException(msg) from ex
-
-    def get_queued_simulation(self, queued_element_id: str) -> SimulationQueueElement:
-        response = httpx.get(self.base_url + f"/api/queue/{queued_element_id}")
-
-        if response.status_code != 200:
-            if response.status_code == 404:
-                msg = f"Queue element '{queued_element_id}' not found"
-                raise QueueClientElementNotFoundException(msg)
-            msg_0 = f"Failed to get queued simulation: {response.text}"
-            raise QueueClientException(msg_0)
-
-        data = SimulationQueueResponse(**response.json())
-
-        try:
-            return SimulationQueueElement(**data.model_dump())
-        except ValidationError as ex:
-            msg = f"Validation error: {ex}"
-            raise QueueClientException(msg) from ex
+    def get_queued_simulation(self, queued_element_id: str | uuid.UUID) -> SimulationQueueElement:
+        response = self._request(
+            "GET",
+            f"/api/queue/{queued_element_id}",
+            not_found_message=f"Queue element '{queued_element_id}' not found",
+        )
+        return self._to_domain(self._json(response), response.status_code)
 
     def post_queued_simulation(self, request: SimulationQueueElementCreate) -> str:
         payload = SimulationQueueRequest(
@@ -73,53 +60,116 @@ class QueueClient(QueueClientInterface):
             issuer=request.issuer,
             callback_url=request.callback_url,
             name=request.name,
-        ).model_dump()
+        ).model_dump(mode="json")
 
-        response = httpx.post(self.base_url + "/api/queue", json=payload)
-
-        if response.status_code != 201:
-            msg = f"Failed to post queued simulation: {response.text}"
-            raise QueueClientException(msg)
-
-        return response.json().get("id")
+        response = self._request("POST", "/api/queue", json=payload)
+        return self._to_post_result(self._json(response), response.status_code).id
 
     def update_queued_simulation(
         self,
-        queued_element_id: str,
+        queued_element_id: str | uuid.UUID,
         parameters: dict,
         issuer: str | None = None,
         callback_url: str | None = None,
         name: str | None = None,
     ) -> SimulationQueueElement:
         payload = SimulationQueueRequest(
-            parameters=parameters, issuer=issuer, callback_url=callback_url, name=name
-        ).model_dump()
+            parameters=parameters,
+            issuer=issuer,
+            callback_url=callback_url,
+            name=name,
+        ).model_dump(mode="json")
 
-        response = httpx.patch(self.base_url + f"/api/queue/{queued_element_id}", json=payload)
+        response = self._request(
+            "PATCH",
+            f"/api/queue/{queued_element_id}",
+            json=payload,
+            not_found_message=f"Queue element '{queued_element_id}' not found",
+        )
+        return self._to_domain(self._json(response), response.status_code)
 
-        if response.status_code != 200:
-            if response.status_code == 404:
-                msg = f"Queue element '{queued_element_id}' not found"
-                raise QueueClientElementNotFoundException(msg)
-            msg = f"Failed to update queued simulation: {response.text}"
-            raise QueueClientException(msg)
+    def delete_queued_element(self, queue_id: str | uuid.UUID) -> bool:
+        self._request(
+            "DELETE",
+            f"/api/queue/{queue_id}",
+            not_found_message=f"Queue element '{queue_id}' not found",
+        )
+        return True
 
-        data = SimulationQueueResponse(**response.json())
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: Any = None,
+        not_found_message: str | None = None,
+    ) -> httpx2.Response:
+        url = f"{self.base_url}{path}"
 
         try:
-            return SimulationQueueElement(**data.model_dump())
+            with httpx2.Client(timeout=self.timeout) as client:
+                response = client.request(method, url, json=json)
+            response.raise_for_status()
+        except httpx2.TimeoutException as ex:  # must come before RequestError
+            msg = f"{method} {url} timed out after {self.timeout}s"
+            raise QueueClientTimeoutException(msg) from ex
+        except httpx2.HTTPStatusError as ex:
+            raise self._map_status_error(ex, not_found_message) from ex
+        except (httpx2.RequestError, httpx2.InvalidURL) as ex:
+            msg = f"{method} {url} failed: {ex!r}"
+            raise QueueClientConnectionException(msg) from ex
+
+        return response
+
+    @staticmethod
+    def _map_status_error(
+        ex: httpx2.HTTPStatusError, not_found_message: str | None
+    ) -> QueueClientException:
+        response = ex.response
+        status = response.status_code
+        detail = QueueClient._extract_detail(response)
+
+        if status == httpx2.codes.NOT_FOUND:
+            return QueueClientElementNotFoundException(
+                not_found_message or f"Queue element not found: {detail}", status
+            )
+
+        request = ex.request
+        return QueueClientException(
+            f"{request.method} {request.url} returned {status}: {detail}", status
+        )
+
+    @staticmethod
+    def _extract_detail(response: httpx2.Response) -> str:
+        try:
+            body = response.json()
+        except ValueError:
+            return response.text
+        if isinstance(body, dict) and "detail" in body:
+            return str(body["detail"])
+        return response.text
+
+    @staticmethod
+    def _json(response: httpx2.Response) -> Any:
+        try:
+            return response.json()
+        except ValueError as ex:
+            msg = f"Response from {response.request.url} is not valid JSON"
+            raise QueueClientInvalidResponseException(msg, response.status_code) from ex
+
+    @staticmethod
+    def _to_domain(element: Any, status_code: int) -> SimulationQueueElement:
+        try:
+            dto = SimulationQueueResponse.model_validate(element)
+            return SimulationQueueElement.model_validate(dto.model_dump())
         except ValidationError as ex:
-            msg_0 = f"Validation error: {ex}"
-            raise QueueClientException(msg_0) from ex
+            msg = f"Validation error: {ex}"
+            raise QueueClientInvalidResponseException(msg, status_code) from ex
 
-    def delete_queued_element(self, queue_id: str) -> bool:
-        response = httpx.delete(self.base_url + f"/api/queue/{queue_id}")
-
-        if response.status_code != 204:
-            if response.status_code == 404:
-                msg = f"Queue element '{queue_id}' not found"
-                raise QueueClientElementNotFoundException(msg)
-            msg = f"Failed to delete queued element: {response.text}"
-            raise QueueClientException(msg)
-
-        return True
+    @staticmethod
+    def _to_post_result(element: Any, status_code: int) -> SimulationQueuePostResponse:
+        try:
+            return SimulationQueuePostResponse.model_validate(element)
+        except ValidationError as ex:
+            msg = f"Validation error: {ex}"
+            raise QueueClientInvalidResponseException(msg, status_code) from ex

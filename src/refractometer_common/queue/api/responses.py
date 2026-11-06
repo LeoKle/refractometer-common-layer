@@ -14,3 +14,7 @@ class SimulationQueueResponse(BaseModel):
     id: str | None = None
     name: str | None = None
     issued_at: datetime
+
+
+class SimulationQueuePostResponse(BaseModel):
+    id: str
