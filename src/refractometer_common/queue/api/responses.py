@@ -13,6 +13,4 @@ class SimulationQueueResponse(BaseModel):
     callback_url: str | None = None
     id: str | None = None
     name: str | None = None
-    image_id: str | None = None
     issued_at: datetime
-    completed_at: datetime | None = None

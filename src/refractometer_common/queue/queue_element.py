@@ -9,8 +9,6 @@ class SimulationQueueElement:
     name: str
     parameters: dict
     issued_at: datetime
-    image_id: str | None = None
-    completed_at: datetime | None = None
     index: int | None = None
     being_processed: bool | None = False
     issuer: str | None = None
