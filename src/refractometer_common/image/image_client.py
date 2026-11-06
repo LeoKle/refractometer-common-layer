@@ -30,14 +30,24 @@ class ImageClient(ImageClientInterface):
         )
         return self._to_domain(self._json(response), response.status_code)
 
-    def post_image(self, request: CreateImageRequest) -> str:
+    def post_image(
+        self,
+        request: CreateImageRequest,
+        idempotency_key: str | None = None,
+    ) -> str:
         try:
             payload = DetectorImageCreateRequest.model_validate(request.model_dump())
         except ValidationError as ex:
             msg = f"Invalid image create request: {ex}"
             raise ImageClientException(msg) from ex
 
-        response = self._request("POST", "/api/image", json=payload.model_dump(mode="json"))
+        headers = {}
+        if idempotency_key:
+            headers["idempotency-key"] = idempotency_key
+
+        response = self._request(
+            "POST", "/api/image", json=payload.model_dump(mode="json"), headers=headers
+        )
 
         return self._to_post_result(self._json(response), response.status_code).id
 
@@ -48,12 +58,13 @@ class ImageClient(ImageClientInterface):
         *,
         json: Any = None,
         not_found_message: str | None = None,
+        headers: dict | None = None,
     ) -> httpx2.Response:
         url = f"{self.base_url}{path}"
 
         try:
             with httpx2.Client(timeout=self.timeout) as client:
-                response = client.request(method, url, json=json)
+                response = client.request(method, url, json=json, headers=headers)
             response.raise_for_status()
         except httpx2.TimeoutException as ex:  # must come before RequestError
             msg = f"{method} {url} timed out after {self.timeout}s"

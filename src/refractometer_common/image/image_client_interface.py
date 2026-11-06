@@ -39,4 +39,8 @@ class ImageClientInterface(ABC):
     def get_image(self, image_id: str) -> Image: ...
 
     @abstractmethod
-    def post_image(self, request: CreateImageRequest) -> str: ...
+    def post_image(
+        self,
+        request: CreateImageRequest,
+        idempotency_key: str | None = None,
+    ) -> str: ...
