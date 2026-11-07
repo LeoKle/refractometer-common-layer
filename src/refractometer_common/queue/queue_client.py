@@ -54,7 +54,7 @@ class QueueClient(QueueClientInterface):
         )
         return self._to_domain(self._json(response), response.status_code)
 
-    def post_queued_simulation(self, request: SimulationQueueElementCreate) -> str:
+    def create_queued_simulation(self, request: SimulationQueueElementCreate) -> str:
         payload = SimulationQueueRequest(
             parameters=request.parameters,
             issuer=request.issuer,

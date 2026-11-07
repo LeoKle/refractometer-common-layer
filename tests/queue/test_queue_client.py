@@ -291,7 +291,7 @@ def test_get_queued_simulation_unprocessable(client: QueueClient, httpx2_mock: r
 
 
 @pytest.mark.parametrize("status_code", [200, 201])
-def test_post_queued_simulation(
+def test_create_queued_simulation(
     client: QueueClient,
     create_request: SimulationQueueElementCreate,
     status_code: int,
@@ -301,10 +301,10 @@ def test_post_queued_simulation(
         status_code=status_code, json={"id": ELEMENT_ID}
     )
 
-    assert client.post_queued_simulation(create_request) == ELEMENT_ID
+    assert client.create_queued_simulation(create_request) == ELEMENT_ID
 
 
-def test_post_queued_simulation_sends_expected_body(
+def test_create_queued_simulation_sends_expected_body(
     client: QueueClient,
     create_request: SimulationQueueElementCreate,
     httpx2_mock: respx.Router,
@@ -313,7 +313,7 @@ def test_post_queued_simulation_sends_expected_body(
         status_code=201, json={"id": ELEMENT_ID}
     )
 
-    client.post_queued_simulation(create_request)
+    client.create_queued_simulation(create_request)
 
     body = json.loads(route.calls.last.request.content)
     assert body == {
@@ -324,18 +324,18 @@ def test_post_queued_simulation_sends_expected_body(
     }
 
 
-def test_post_queued_simulation_minimal_request(client: QueueClient, httpx2_mock: respx.Router):
+def test_create_queued_simulation_minimal_request(client: QueueClient, httpx2_mock: respx.Router):
     route = httpx2_mock.post(f"{BASE_URL}/api/queue").respond(
         status_code=201, json={"id": ELEMENT_ID}
     )
 
-    client.post_queued_simulation(SimulationQueueElementCreate(parameters={"a": 1}))
+    client.create_queued_simulation(SimulationQueueElementCreate(parameters={"a": 1}))
 
     body = json.loads(route.calls.last.request.content)
     assert body == {"parameters": {"a": 1}, "issuer": None, "callback_url": None, "name": None}
 
 
-def test_post_queued_simulation_http_error(
+def test_create_queued_simulation_http_error(
     client: QueueClient,
     create_request: SimulationQueueElementCreate,
     httpx2_mock: respx.Router,
@@ -345,12 +345,12 @@ def test_post_queued_simulation_http_error(
     )
 
     with pytest.raises(QueueClientException, match="returned 422: parameters") as exc_info:
-        client.post_queued_simulation(create_request)
+        client.create_queued_simulation(create_request)
 
     assert exc_info.value.status_code == 422
 
 
-def test_post_queued_simulation_invalid_json(
+def test_create_queued_simulation_invalid_json(
     client: QueueClient,
     create_request: SimulationQueueElementCreate,
     httpx2_mock: respx.Router,
@@ -358,7 +358,7 @@ def test_post_queued_simulation_invalid_json(
     httpx2_mock.post(f"{BASE_URL}/api/queue").respond(status_code=201, text="created")
 
     with pytest.raises(QueueClientInvalidResponseException, match="not valid JSON"):
-        client.post_queued_simulation(create_request)
+        client.create_queued_simulation(create_request)
 
 
 @pytest.mark.parametrize(
@@ -366,7 +366,7 @@ def test_post_queued_simulation_invalid_json(
     [{}, {"id": None}, {"id": 123}, [ELEMENT_ID]],
     ids=["missing_id", "null_id", "non_string_id", "not_an_object"],
 )
-def test_post_queued_simulation_unprocessable_response(
+def test_create_queued_simulation_unprocessable_response(
     client: QueueClient,
     create_request: SimulationQueueElementCreate,
     body,
@@ -375,7 +375,7 @@ def test_post_queued_simulation_unprocessable_response(
     httpx2_mock.post(f"{BASE_URL}/api/queue").respond(status_code=201, json=body)
 
     with pytest.raises(QueueClientInvalidResponseException) as exc_info:
-        client.post_queued_simulation(create_request)
+        client.create_queued_simulation(create_request)
 
     assert exc_info.value.status_code == 201
 
@@ -493,7 +493,7 @@ ALL_CALLS = [
     lambda c: c.claim_element(),
     lambda c: c.get_queued_simulations(),
     lambda c: c.get_queued_simulation(ELEMENT_ID),
-    lambda c: c.post_queued_simulation(SimulationQueueElementCreate(parameters={})),
+    lambda c: c.create_queued_simulation(SimulationQueueElementCreate(parameters={})),
     lambda c: c.update_queued_simulation(ELEMENT_ID, {}),
     lambda c: c.delete_queued_element(ELEMENT_ID),
 ]
@@ -501,7 +501,7 @@ ALL_CALL_IDS = [
     "claim_element",
     "get_queued_simulations",
     "get_queued_simulation",
-    "post_queued_simulation",
+    "create_queued_simulation",
     "update_queued_simulation",
     "delete_queued_element",
 ]
