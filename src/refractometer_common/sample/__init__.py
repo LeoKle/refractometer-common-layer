@@ -1,4 +1,5 @@
 from .interfaces.sample_client_interface import (
+    CreateSampleRequest,
     SampleClientConnectionException,
     SampleClientException,
     SampleClientInterface,
@@ -10,6 +11,7 @@ from .sample import Sample, SellmeierCoefficients
 from .sample_client import SampleClient
 
 __all__ = [
+    "CreateSampleRequest",
     "Sample",
     "SampleClient",
     "SampleClientConnectionException",
