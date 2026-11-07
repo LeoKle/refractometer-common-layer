@@ -187,7 +187,7 @@ def test_get_image_unprocessable(client: ImageClient, body, httpx2_mock: respx.R
 
 
 @pytest.mark.parametrize("status_code", [200, 201])
-def test_post_image(
+def test_create_image(
     client: ImageClient,
     create_request: CreateImageRequest,
     status_code: int,
@@ -198,10 +198,10 @@ def test_post_image(
         json={"id": NEW_IMAGE_ID},
     )
 
-    assert client.post_image(create_request) == NEW_IMAGE_ID
+    assert client.create_image(create_request) == NEW_IMAGE_ID
 
 
-def test_post_image_sends_expected_payload(
+def test_create_image_sends_expected_payload(
     client: ImageClient,
     create_request: CreateImageRequest,
     httpx2_mock: respx.Router,
@@ -211,7 +211,7 @@ def test_post_image_sends_expected_payload(
         json={"id": NEW_IMAGE_ID},
     )
 
-    client.post_image(create_request)
+    client.create_image(create_request)
 
     assert route.call_count == 1
     sent = route.calls.last.request
@@ -221,7 +221,7 @@ def test_post_image_sends_expected_payload(
     }
 
 
-def test_post_image_with_trailing_slash_base_url(
+def test_create_image_with_trailing_slash_base_url(
     create_request: CreateImageRequest, httpx2_mock: respx.Router
 ):
     client = ImageClient(f"{BASE_URL}/")
@@ -230,11 +230,11 @@ def test_post_image_with_trailing_slash_base_url(
         json={"id": NEW_IMAGE_ID},
     )
 
-    assert client.post_image(create_request) == NEW_IMAGE_ID
+    assert client.create_image(create_request) == NEW_IMAGE_ID
 
 
 @pytest.mark.parametrize("status_code", [400, 401, 403, 500, 502, 503])
-def test_post_image_http_error(
+def test_create_image_http_error(
     client: ImageClient,
     create_request: CreateImageRequest,
     status_code: int,
@@ -248,12 +248,12 @@ def test_post_image_http_error(
     with pytest.raises(
         ImageClientException,
     ) as exc_info:
-        client.post_image(create_request)
+        client.create_image(create_request)
 
     assert exc_info.value.status_code == status_code
 
 
-def test_post_image_validation_error_from_service(
+def test_create_image_validation_error_from_service(
     client: ImageClient, create_request: CreateImageRequest, httpx2_mock: respx.Router
 ):
     httpx2_mock.post(f"{BASE_URL}/api/image").respond(
@@ -262,12 +262,12 @@ def test_post_image_validation_error_from_service(
     )
 
     with pytest.raises(ImageClientException, match="field required") as exc_info:
-        client.post_image(create_request)
+        client.create_image(create_request)
 
     assert exc_info.value.status_code == 422
 
 
-def test_post_image_not_found(
+def test_create_image_not_found(
     client: ImageClient, create_request: CreateImageRequest, httpx2_mock: respx.Router
 ):
     httpx2_mock.post(f"{BASE_URL}/api/image").respond(
@@ -276,12 +276,12 @@ def test_post_image_not_found(
     )
 
     with pytest.raises(ImageNotFoundException) as exc_info:
-        client.post_image(create_request)
+        client.create_image(create_request)
 
     assert exc_info.value.status_code == 404
 
 
-def test_post_image_invalid_json(
+def test_create_image_invalid_json(
     client: ImageClient, create_request: CreateImageRequest, httpx2_mock: respx.Router
 ):
     httpx2_mock.post(f"{BASE_URL}/api/image").respond(
@@ -290,7 +290,7 @@ def test_post_image_invalid_json(
     )
 
     with pytest.raises(ImageClientInvalidResponseException, match="not valid JSON"):
-        client.post_image(create_request)
+        client.create_image(create_request)
 
 
 @pytest.mark.parametrize(
@@ -304,7 +304,7 @@ def test_post_image_invalid_json(
     ],
     ids=["missing_id", "null_id", "id_wrong_type", "empty_list", "null"],
 )
-def test_post_image_unprocessable_response(
+def test_create_image_unprocessable_response(
     client: ImageClient,
     create_request: CreateImageRequest,
     body,
@@ -316,19 +316,19 @@ def test_post_image_unprocessable_response(
     )
 
     with pytest.raises(ImageClientInvalidResponseException) as exc_info:
-        client.post_image(create_request)
+        client.create_image(create_request)
 
     assert exc_info.value.status_code == 200
 
 
 @pytest.mark.filterwarnings("ignore")  # model_construct + model_dump emits serializer warnings
-def test_post_image_invalid_request_is_wrapped(client: ImageClient):
+def test_create_image_invalid_request_is_wrapped(client: ImageClient):
     # model_construct skips validation, so we can build a request that is invalid
     # when it gets re-validated into the API DTO. No HTTP call must be made.
     bad_request = CreateImageRequest.model_construct(values="not-a-matrix", shape=(1, 1))
 
     with pytest.raises(ImageClientException, match="Invalid image create request") as exc_info:
-        client.post_image(bad_request)
+        client.create_image(bad_request)
 
     assert exc_info.value.status_code is None
     assert not isinstance(exc_info.value, ImageClientInvalidResponseException)
@@ -336,9 +336,9 @@ def test_post_image_invalid_request_is_wrapped(client: ImageClient):
 
 CALLS = [
     lambda c: c.get_image(IMAGE_ID),
-    lambda c: c.post_image(CreateImageRequest(values=[[1.0]], shape=(1, 1))),
+    lambda c: c.create_image(CreateImageRequest(values=[[1.0]], shape=(1, 1))),
 ]
-CALL_IDS = ["get_image", "post_image"]
+CALL_IDS = ["get_image", "create_image"]
 
 
 @pytest.mark.parametrize("call", CALLS, ids=CALL_IDS)

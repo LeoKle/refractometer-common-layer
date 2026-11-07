@@ -30,7 +30,7 @@ class ImageClient(ImageClientInterface):
         )
         return self._to_domain(self._json(response), response.status_code)
 
-    def post_image(
+    def create_image(
         self,
         request: CreateImageRequest,
         idempotency_key: str | None = None,
