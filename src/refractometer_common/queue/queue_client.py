@@ -5,10 +5,7 @@ import httpx2
 from pydantic import ValidationError
 
 from refractometer_common.queue.api.request import SimulationQueueRequest
-from refractometer_common.queue.api.responses import (
-    SimulationQueuePostResponse,
-    SimulationQueueResponse,
-)
+from refractometer_common.queue.api.responses import SimulationQueueResponse
 from refractometer_common.queue.queue_client_interface import (
     QueueClientConnectionException,
     QueueClientElementNotFoundException,
@@ -54,7 +51,9 @@ class QueueClient(QueueClientInterface):
         )
         return self._to_domain(self._json(response), response.status_code)
 
-    def create_queued_simulation(self, request: SimulationQueueElementCreate) -> str:
+    def create_queued_simulation(
+        self, request: SimulationQueueElementCreate
+    ) -> SimulationQueueElement:
         payload = SimulationQueueRequest(
             parameters=request.parameters,
             issuer=request.issuer,
@@ -63,7 +62,7 @@ class QueueClient(QueueClientInterface):
         ).model_dump(mode="json")
 
         response = self._request("POST", "/api/queue", json=payload)
-        return self._to_post_result(self._json(response), response.status_code).id
+        return self._to_domain(self._json(response), response.status_code)
 
     def update_queued_simulation(
         self,
@@ -162,14 +161,6 @@ class QueueClient(QueueClientInterface):
         try:
             dto = SimulationQueueResponse.model_validate(element)
             return SimulationQueueElement.model_validate(dto.model_dump())
-        except ValidationError as ex:
-            msg = f"Validation error: {ex}"
-            raise QueueClientInvalidResponseException(msg, status_code) from ex
-
-    @staticmethod
-    def _to_post_result(element: Any, status_code: int) -> SimulationQueuePostResponse:
-        try:
-            return SimulationQueuePostResponse.model_validate(element)
         except ValidationError as ex:
             msg = f"Validation error: {ex}"
             raise QueueClientInvalidResponseException(msg, status_code) from ex

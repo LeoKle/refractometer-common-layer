@@ -297,11 +297,19 @@ def test_create_queued_simulation(
     status_code: int,
     httpx2_mock: respx.Router,
 ):
-    httpx2_mock.post(f"{BASE_URL}/api/queue").respond(
-        status_code=status_code, json={"id": ELEMENT_ID}
+    route = httpx2_mock.post(f"{BASE_URL}/api/queue").respond(
+        status_code=status_code, json=QUEUE_RESPONSE
     )
 
-    assert client.create_queued_simulation(create_request) == ELEMENT_ID
+    result = client.create_queued_simulation(create_request)
+
+    assert isinstance(result, SimulationQueueElement)
+    assert result.id == uuid.UUID(ELEMENT_ID)
+    assert result.parameters == QUEUE_RESPONSE["parameters"]
+    assert result.name == QUEUE_RESPONSE["name"]
+    assert result.issuer == QUEUE_RESPONSE["issuer"]
+    assert result.callback_url == QUEUE_RESPONSE["callback_url"]
+    assert route.call_count == 1
 
 
 def test_create_queued_simulation_sends_expected_body(
@@ -309,9 +317,7 @@ def test_create_queued_simulation_sends_expected_body(
     create_request: SimulationQueueElementCreate,
     httpx2_mock: respx.Router,
 ):
-    route = httpx2_mock.post(f"{BASE_URL}/api/queue").respond(
-        status_code=201, json={"id": ELEMENT_ID}
-    )
+    route = httpx2_mock.post(f"{BASE_URL}/api/queue").respond(status_code=201, json=QUEUE_RESPONSE)
 
     client.create_queued_simulation(create_request)
 
@@ -325,9 +331,7 @@ def test_create_queued_simulation_sends_expected_body(
 
 
 def test_create_queued_simulation_minimal_request(client: QueueClient, httpx2_mock: respx.Router):
-    route = httpx2_mock.post(f"{BASE_URL}/api/queue").respond(
-        status_code=201, json={"id": ELEMENT_ID}
-    )
+    route = httpx2_mock.post(f"{BASE_URL}/api/queue").respond(status_code=201, json=QUEUE_RESPONSE)
 
     client.create_queued_simulation(SimulationQueueElementCreate(parameters={"a": 1}))
 
@@ -363,8 +367,14 @@ def test_create_queued_simulation_invalid_json(
 
 @pytest.mark.parametrize(
     "body",
-    [{}, {"id": None}, {"id": 123}, [ELEMENT_ID]],
-    ids=["missing_id", "null_id", "non_string_id", "not_an_object"],
+    [
+        {"id": ELEMENT_ID},
+        {k: v for k, v in QUEUE_RESPONSE.items() if k != "issued_at"},
+        {**QUEUE_RESPONSE, "id": None},
+        {**QUEUE_RESPONSE, "id": "not-a-uuid"},
+        [QUEUE_RESPONSE],
+    ],
+    ids=["id_only", "missing_issued_at", "null_id", "invalid_id", "not_an_object"],
 )
 def test_create_queued_simulation_unprocessable_response(
     client: QueueClient,

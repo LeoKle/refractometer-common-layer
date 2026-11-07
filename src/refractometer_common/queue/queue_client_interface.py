@@ -48,7 +48,9 @@ class QueueClientInterface(ABC):
     ) -> SimulationQueueElement: ...
 
     @abstractmethod
-    def create_queued_simulation(self, request: SimulationQueueElementCreate) -> str: ...
+    def create_queued_simulation(
+        self, request: SimulationQueueElementCreate
+    ) -> SimulationQueueElement: ...
 
     @abstractmethod
     def update_queued_simulation(
