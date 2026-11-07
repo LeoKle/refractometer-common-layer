@@ -8,10 +8,12 @@ from .interfaces.spectrum_client_interface import (
     SpectrumNotFoundException,
 )
 from .spectrum import Spectrum
+from .spectrum_client import SpectrumClient
 
 __all__ = [
     "CreateSpectrumRequest",
     "Spectrum",
+    "SpectrumClient",
     "SpectrumClientConnectionException",
     "SpectrumClientException",
     "SpectrumClientInterface",
