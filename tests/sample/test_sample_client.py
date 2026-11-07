@@ -1,4 +1,5 @@
 import json
+import math
 import uuid
 
 import httpx2
@@ -227,18 +228,46 @@ def test_create_sample(
     status_code: int,
     httpx2_mock: respx.Router,
 ):
-    route = httpx2_mock.post(f"{BASE_URL}/api/sample").respond(status_code=status_code)
+    route = httpx2_mock.post(f"{BASE_URL}/api/sample").respond(
+        status_code=status_code, json=SAMPLE_RESPONSE
+    )
 
     result = client.create_sample(create_request)
 
-    assert result is None
+    assert isinstance(result, Sample)
+    assert result.id == uuid.UUID(SAMPLE_ID)
+    assert result.name == SAMPLE_RESPONSE["name"]
+    assert SAMPLE_RESPONSE["sellmeier_coefficients"]["B"] == result.sellmeier_coefficients.B
+    assert SAMPLE_RESPONSE["sellmeier_coefficients"]["C"] == result.sellmeier_coefficients.C
     assert route.call_count == 1
+
+
+def test_create_sample_invalid_json(
+    client: SampleClient, create_request: CreateSampleRequest, httpx2_mock: respx.Router
+):
+    httpx2_mock.post(f"{BASE_URL}/api/sample").respond(status_code=200, text="<html>nope</html>")
+
+    with pytest.raises(SampleClientInvalidResponseException, match="not valid JSON"):
+        client.create_sample(create_request)
+
+
+def test_create_sample_unprocessable_response(
+    client: SampleClient, create_request: CreateSampleRequest, httpx2_mock: respx.Router
+):
+    httpx2_mock.post(f"{BASE_URL}/api/sample").respond(
+        status_code=200, json={"message": "Sample created"}
+    )
+
+    with pytest.raises(SampleClientInvalidResponseException, match="Validation error"):
+        client.create_sample(create_request)
 
 
 def test_create_sample_sends_expected_body(
     client: SampleClient, create_request: CreateSampleRequest, httpx2_mock: respx.Router
 ):
-    route = httpx2_mock.post(f"{BASE_URL}/api/sample").respond(status_code=200)
+    route = httpx2_mock.post(f"{BASE_URL}/api/sample").respond(
+        status_code=200, json=SAMPLE_RESPONSE
+    )
 
     client.create_sample(create_request)
 
@@ -299,18 +328,43 @@ def test_create_sample_request_requires_three_coefficients(overrides: dict):
 
 
 def test_update_sample(client: SampleClient, domain_sample: Sample, httpx2_mock: respx.Router):
-    route = httpx2_mock.patch(f"{BASE_URL}/api/sample").respond(status_code=200)
+    route = httpx2_mock.patch(f"{BASE_URL}/api/sample").respond(
+        status_code=200, json=domain_sample.model_dump(mode="json")
+    )
 
     result = client.update_sample(domain_sample)
 
-    assert result is None
+    assert result == domain_sample
     assert route.call_count == 1
+
+
+def test_update_sample_returns_server_state(
+    client: SampleClient, domain_sample: Sample, httpx2_mock: respx.Router
+):
+    """The returned sample is parsed from the response, not echoed from the request."""
+    httpx2_mock.patch(f"{BASE_URL}/api/sample").respond(status_code=200, json=SAMPLE_RESPONSE)
+
+    result = client.update_sample(domain_sample)
+
+    assert result.name == SAMPLE_RESPONSE["name"]
+    assert SAMPLE_RESPONSE["sellmeier_coefficients"]["B"] == result.sellmeier_coefficients.B
+
+
+def test_update_sample_unprocessable_response(
+    client: SampleClient, domain_sample: Sample, httpx2_mock: respx.Router
+):
+    httpx2_mock.patch(f"{BASE_URL}/api/sample").respond(status_code=200, json={"not": "a sample"})
+
+    with pytest.raises(SampleClientInvalidResponseException, match="Validation error"):
+        client.update_sample(domain_sample)
 
 
 def test_update_sample_sends_expected_body(
     client: SampleClient, domain_sample: Sample, httpx2_mock: respx.Router
 ):
-    route = httpx2_mock.patch(f"{BASE_URL}/api/sample").respond(status_code=200)
+    route = httpx2_mock.patch(f"{BASE_URL}/api/sample").respond(
+        status_code=200, json=domain_sample.model_dump(mode="json")
+    )
 
     client.update_sample(domain_sample)
 
@@ -478,4 +532,4 @@ def test_base_url_trailing_slash_is_stripped():
 def test_custom_timeout_is_stored():
     client = SampleClient(BASE_URL, timeout=2.5)
 
-    assert client.timeout == 2.5
+    assert math.isclose(client.timeout, 2.5, abs_tol=1e-9)

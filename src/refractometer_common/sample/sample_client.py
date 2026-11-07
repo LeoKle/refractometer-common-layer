@@ -31,7 +31,7 @@ class SampleClient(SampleClientInterface):
 
         return [self._to_domain(element, response.status_code) for element in payload]
 
-    def get_sample(self, sample_id: str):
+    def get_sample(self, sample_id: str) -> Sample:
         response = self._request(
             "GET",
             f"/api/sample/{sample_id}",
@@ -39,22 +39,24 @@ class SampleClient(SampleClientInterface):
         )
         return self._to_domain(self._json(response), response.status_code)
 
-    def create_sample(self, request: CreateSampleRequest):
+    def create_sample(self, request: CreateSampleRequest) -> Sample:
         payload = SampleCreateDTO(
             name=request.name, sellmeier_coefficients={"B": request.B, "C": request.C}
         ).model_dump(mode="json")
 
-        self._request("POST", "/api/sample", json=payload)
+        response = self._request("POST", "/api/sample", json=payload)
+        return self._to_domain(self._json(response), response.status_code)
 
-    def update_sample(self, sample: Sample):
+    def update_sample(self, sample: Sample) -> Sample:
         payload = SampleDTO(**sample.model_dump(mode="json")).model_dump(mode="json")
 
-        self._request(
+        response = self._request(
             "PATCH",
             "/api/sample",
             json=payload,
             not_found_message=f"Sample '{sample.id}' not found",
         )
+        return self._to_domain(self._json(response), response.status_code)
 
     def delete_sample(self, sample_id: str):
         self._request("DELETE", f"/api/sample/{sample_id}")
