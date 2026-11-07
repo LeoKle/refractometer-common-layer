@@ -39,22 +39,24 @@ class SpectrumClient(SpectrumClientInterface):
         )
         return self._to_domain(self._json(response), response.status_code)
 
-    def create_spectrum(self, request: CreateSpectrumRequest):
+    def create_spectrum(self, request: CreateSpectrumRequest) -> Spectrum:
         payload = SpectrumCreateDTO(
             name=request.name, wavelengths=request.wavelengths, intensities=request.intensities
         ).model_dump(mode="json")
 
-        self._request("POST", "/api/spectrum", json=payload)
+        response = self._request("POST", "/api/spectrum", json=payload)
+        return self._to_domain(self._json(response), response.status_code)
 
-    def update_spectrum(self, spectrum: Spectrum):
+    def update_spectrum(self, spectrum: Spectrum) -> Spectrum:
         payload = SpectrumDTO(**spectrum.model_dump(mode="json")).model_dump(mode="json")
 
-        self._request(
+        response = self._request(
             "PATCH",
             "/api/spectrum",
             json=payload,
             not_found_message=f"Spectrum '{spectrum.id}' not found",
         )
+        return self._to_domain(self._json(response), response.status_code)
 
     def delete_spectrum(self, spectrum_id: str):
         self._request("DELETE", f"/api/spectrum/{spectrum_id}")

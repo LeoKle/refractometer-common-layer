@@ -249,18 +249,47 @@ def test_create_spectrum(
     status_code: int,
     httpx2_mock: respx.Router,
 ):
-    route = httpx2_mock.post(f"{BASE_URL}/api/spectrum").respond(status_code=status_code)
+    route = httpx2_mock.post(f"{BASE_URL}/api/spectrum").respond(
+        status_code=status_code, json=SPECTRUM_RESPONSE
+    )
 
     result = client.create_spectrum(create_request)
 
-    assert result is None
+    assert isinstance(result, Spectrum)
+    assert result.id == uuid.UUID(SPECTRUM_ID)
+    assert result.name == SPECTRUM_RESPONSE["name"]
+    assert result.wavelengths == SPECTRUM_RESPONSE["wavelengths"]
+    assert result.intensities == SPECTRUM_RESPONSE["intensities"]
     assert route.call_count == 1
+
+
+def test_create_spectrum_invalid_json(
+    client: SpectrumClient, create_request: CreateSpectrumRequest, httpx2_mock: respx.Router
+):
+    httpx2_mock.post(f"{BASE_URL}/api/spectrum").respond(status_code=201, text="<html>nope</html>")
+
+    with pytest.raises(SpectrumClientInvalidResponseException, match="not valid JSON"):
+        client.create_spectrum(create_request)
+
+
+def test_create_spectrum_unprocessable_response(
+    client: SpectrumClient, create_request: CreateSpectrumRequest, httpx2_mock: respx.Router
+):
+    """The old API answered with a message instead of the created spectrum."""
+    httpx2_mock.post(f"{BASE_URL}/api/spectrum").respond(
+        status_code=201, json={"message": "Spectrum created successfully"}
+    )
+
+    with pytest.raises(SpectrumClientInvalidResponseException, match="Validation error"):
+        client.create_spectrum(create_request)
 
 
 def test_create_spectrum_sends_expected_body(
     client: SpectrumClient, create_request: CreateSpectrumRequest, httpx2_mock: respx.Router
 ):
-    route = httpx2_mock.post(f"{BASE_URL}/api/spectrum").respond(status_code=200)
+    route = httpx2_mock.post(f"{BASE_URL}/api/spectrum").respond(
+        status_code=201, json=SPECTRUM_RESPONSE
+    )
 
     client.create_spectrum(create_request)
 
@@ -305,18 +334,45 @@ def test_create_spectrum_validation_error_from_service(
 def test_update_spectrum(
     client: SpectrumClient, domain_spectrum: Spectrum, httpx2_mock: respx.Router
 ):
-    route = httpx2_mock.patch(f"{BASE_URL}/api/spectrum").respond(status_code=200)
+    route = httpx2_mock.patch(f"{BASE_URL}/api/spectrum").respond(
+        status_code=200, json=domain_spectrum.model_dump(mode="json")
+    )
 
     result = client.update_spectrum(domain_spectrum)
 
-    assert result is None
+    assert result == domain_spectrum
     assert route.call_count == 1
+
+
+def test_update_spectrum_returns_server_state(
+    client: SpectrumClient, domain_spectrum: Spectrum, httpx2_mock: respx.Router
+):
+    """The returned spectrum is parsed from the response, not echoed from the request."""
+    httpx2_mock.patch(f"{BASE_URL}/api/spectrum").respond(status_code=200, json=SPECTRUM_RESPONSE)
+
+    result = client.update_spectrum(domain_spectrum)
+
+    assert result.name == SPECTRUM_RESPONSE["name"]
+    assert result.wavelengths == SPECTRUM_RESPONSE["wavelengths"]
+
+
+def test_update_spectrum_unprocessable_response(
+    client: SpectrumClient, domain_spectrum: Spectrum, httpx2_mock: respx.Router
+):
+    httpx2_mock.patch(f"{BASE_URL}/api/spectrum").respond(
+        status_code=200, json={"not": "a spectrum"}
+    )
+
+    with pytest.raises(SpectrumClientInvalidResponseException, match="Validation error"):
+        client.update_spectrum(domain_spectrum)
 
 
 def test_update_spectrum_sends_expected_body(
     client: SpectrumClient, domain_spectrum: Spectrum, httpx2_mock: respx.Router
 ):
-    route = httpx2_mock.patch(f"{BASE_URL}/api/spectrum").respond(status_code=200)
+    route = httpx2_mock.patch(f"{BASE_URL}/api/spectrum").respond(
+        status_code=200, json=domain_spectrum.model_dump(mode="json")
+    )
 
     client.update_spectrum(domain_spectrum)
 
