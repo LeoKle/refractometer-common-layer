@@ -44,3 +44,10 @@ class ImageClientInterface(ABC):
         request: CreateImageRequest,
         idempotency_key: str | None = None,
     ) -> str: ...
+
+    @abstractmethod
+    def delete_image(self, image_id: str) -> None:
+        """Delete an image.
+
+        Raises ImageNotFoundException if the image does not exist.
+        """

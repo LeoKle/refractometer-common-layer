@@ -51,6 +51,13 @@ class ImageClient(ImageClientInterface):
 
         return self._to_post_result(self._json(response), response.status_code).id
 
+    def delete_image(self, image_id: str) -> None:
+        self._request(
+            "DELETE",
+            f"/api/image/{image_id}",
+            not_found_message=f"Image '{image_id}' not found",
+        )
+
     def _request(
         self,
         method: str,
