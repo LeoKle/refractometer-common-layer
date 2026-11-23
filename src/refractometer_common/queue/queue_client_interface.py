@@ -64,3 +64,10 @@ class QueueClientInterface(ABC):
 
     @abstractmethod
     def delete_queued_element(self, queue_id: str | uuid.UUID) -> bool: ...
+
+    @abstractmethod
+    def release_element(self, queue_id: str | uuid.UUID, error: str | None = None) -> None:
+        """Hand a claimed element back to the queue and store the error that caused it.
+
+        Raises QueueClientElementNotFoundException if the element does not exist.
+        """

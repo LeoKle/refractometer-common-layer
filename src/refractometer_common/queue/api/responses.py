@@ -8,6 +8,8 @@ class SimulationQueueResponse(BaseModel):
 
     index: int | None = None
     being_processed: bool | None = None
+    attempts: int = 0
+    last_error: str | None = None
 
     issuer: str | None = None
     callback_url: str | None = None

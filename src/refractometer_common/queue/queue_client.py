@@ -4,7 +4,10 @@ from typing import Any
 import httpx2
 from pydantic import ValidationError
 
-from refractometer_common.queue.api.request import SimulationQueueRequest
+from refractometer_common.queue.api.request import (
+    ReleaseQueueElementRequest,
+    SimulationQueueRequest,
+)
 from refractometer_common.queue.api.responses import SimulationQueueResponse
 from refractometer_common.queue.queue_client_interface import (
     QueueClientConnectionException,
@@ -94,6 +97,16 @@ class QueueClient(QueueClientInterface):
             not_found_message=f"Queue element '{queue_id}' not found",
         )
         return True
+
+    def release_element(self, queue_id: str | uuid.UUID, error: str | None = None) -> None:
+        payload = ReleaseQueueElementRequest(error=error).model_dump(mode="json")
+
+        self._request(
+            "POST",
+            f"/api/queue/{queue_id}/release",
+            json=payload,
+            not_found_message=f"Queue element '{queue_id}' not found",
+        )
 
     def _request(
         self,
