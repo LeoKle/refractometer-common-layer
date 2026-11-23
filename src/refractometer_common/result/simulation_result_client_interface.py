@@ -43,6 +43,7 @@ class SimulationResultClientInterface(ABC):
         image_id: str,
         issued_at: datetime,
         completed_at: datetime,
+        idempotency_key: str | None = None,
     ) -> SimulationResult: ...
 
     @abstractmethod

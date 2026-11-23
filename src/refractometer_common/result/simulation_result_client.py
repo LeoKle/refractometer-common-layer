@@ -50,6 +50,7 @@ class SimulationResultClient(SimulationResultClientInterface):
         image_id: str,
         issued_at: datetime,
         completed_at: datetime,
+        idempotency_key: str | None = None,
     ) -> SimulationResult:
         payload = CreateSimulationResultRequest(
             parameters=parameters,
@@ -58,7 +59,10 @@ class SimulationResultClient(SimulationResultClientInterface):
             completed_at=completed_at,
         ).model_dump(mode="json")  # mode="json" -> datetimes/UUIDs become JSON-safe strings
 
-        response = self._request("POST", "/api/result", json=payload)
+        headers = {}
+        if idempotency_key:
+            headers["idempotency-key"] = idempotency_key
+        response = self._request("POST", "/api/result", json=payload, headers=headers)
         return self._to_domain(self._json(response), response.status_code)
 
     def update_result(self, result: SimulationResult) -> SimulationResult:
@@ -82,12 +86,13 @@ class SimulationResultClient(SimulationResultClientInterface):
         *,
         json: Any = None,
         not_found_message: str | None = None,
+        headers: dict | None = None,
     ) -> httpx2.Response:
         url = f"{self.base_url}{path}"
 
         try:
             with httpx2.Client(timeout=self.timeout) as client:
-                response = client.request(method, url, json=json)
+                response = client.request(method, url, json=json, headers=headers)
             response.raise_for_status()
         except httpx2.TimeoutException as ex:  # must come before RequestError
             msg = f"{method} {url} timed out after {self.timeout}s"
