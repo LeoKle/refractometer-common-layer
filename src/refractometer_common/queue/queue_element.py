@@ -13,6 +13,8 @@ class SimulationQueueElement(BaseModel):
     being_processed: bool | None = False
     issuer: str | None = None
     callback_url: str | None = None
+    attempts: int = 0
+    last_error: str | None = None
 
 
 class SimulationQueueElementCreate(BaseModel):
