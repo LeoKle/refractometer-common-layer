@@ -447,3 +447,76 @@ def test_exception_keeps_status_code_and_message():
 
     assert str(ex) == "boom"
     assert ex.status_code == 418
+
+
+def test_create_image_sends_idempotency_key(
+    client: ImageClient, create_request: CreateImageRequest, httpx2_mock: respx.Router
+):
+    route = httpx2_mock.post(f"{BASE_URL}/api/image").respond(
+        status_code=201, json={"id": NEW_IMAGE_ID}
+    )
+
+    client.create_image(create_request, idempotency_key="sim-1:upload_image")
+
+    assert route.calls.last.request.headers["idempotency-key"] == "sim-1:upload_image"
+
+
+def test_create_image_without_idempotency_key_sends_no_header(
+    client: ImageClient, create_request: CreateImageRequest, httpx2_mock: respx.Router
+):
+    route = httpx2_mock.post(f"{BASE_URL}/api/image").respond(
+        status_code=201, json={"id": NEW_IMAGE_ID}
+    )
+
+    client.create_image(create_request)
+
+    assert "idempotency-key" not in route.calls.last.request.headers
+
+
+def test_delete_image(client: ImageClient, httpx2_mock: respx.Router):
+    route = httpx2_mock.delete(f"{BASE_URL}/api/image/{NEW_IMAGE_ID}").respond(status_code=204)
+
+    assert client.delete_image(NEW_IMAGE_ID) is None
+    assert route.called
+
+
+def test_delete_image_not_found(client: ImageClient, httpx2_mock: respx.Router):
+    httpx2_mock.delete(f"{BASE_URL}/api/image/{NEW_IMAGE_ID}").respond(
+        status_code=404, json=NOT_FOUND_RESPONSE
+    )
+
+    with pytest.raises(ImageNotFoundException, match=f"Image '{NEW_IMAGE_ID}' not found") as exc:
+        client.delete_image(NEW_IMAGE_ID)
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.parametrize("status_code", [400, 500, 503])
+def test_delete_image_http_error(client: ImageClient, status_code: int, httpx2_mock: respx.Router):
+    httpx2_mock.delete(f"{BASE_URL}/api/image/{NEW_IMAGE_ID}").respond(
+        status_code=status_code, text="Something went wrong"
+    )
+
+    with pytest.raises(ImageClientException) as exc:
+        client.delete_image(NEW_IMAGE_ID)
+
+    assert not isinstance(exc.value, ImageNotFoundException)
+    assert exc.value.status_code == status_code
+
+
+def test_delete_image_connection_error(client: ImageClient, httpx2_mock: respx.Router):
+    httpx2_mock.delete(f"{BASE_URL}/api/image/{NEW_IMAGE_ID}").mock(
+        side_effect=httpx2.ConnectError("Connection refused")
+    )
+
+    with pytest.raises(ImageClientConnectionException):
+        client.delete_image(NEW_IMAGE_ID)
+
+
+def test_delete_image_timeout(client: ImageClient, httpx2_mock: respx.Router):
+    httpx2_mock.delete(f"{BASE_URL}/api/image/{NEW_IMAGE_ID}").mock(
+        side_effect=httpx2.ReadTimeout("timed out")
+    )
+
+    with pytest.raises(ImageClientTimeoutException):
+        client.delete_image(NEW_IMAGE_ID)

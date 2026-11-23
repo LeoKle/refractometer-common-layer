@@ -612,3 +612,96 @@ def test_exception_keeps_status_code_and_message():
 
 def test_client_implements_interface(client: QueueClient):
     assert isinstance(client, QueueClientInterface)
+
+
+def test_claim_element_reads_attempts_and_last_error(
+    client: QueueClient, httpx2_mock: respx.Router
+):
+    httpx2_mock.get(f"{BASE_URL}/api/queue/claim").respond(
+        status_code=200, json={**QUEUE_RESPONSE, "attempts": 2, "last_error": "boom"}
+    )
+
+    result = client.claim_element()
+
+    assert result.attempts == 2
+    assert result.last_error == "boom"
+
+
+def test_claim_element_defaults_attempts_for_older_service(
+    client: QueueClient, httpx2_mock: respx.Router
+):
+    httpx2_mock.get(f"{BASE_URL}/api/queue/claim").respond(status_code=200, json=QUEUE_RESPONSE)
+
+    result = client.claim_element()
+
+    assert result.attempts == 0
+    assert result.last_error is None
+
+
+def test_release_element(client: QueueClient, httpx2_mock: respx.Router):
+    route = httpx2_mock.post(f"{BASE_URL}/api/queue/{ELEMENT_ID}/release").respond(status_code=204)
+
+    assert client.release_element(ELEMENT_ID, error="image service down") is None
+    assert json.loads(route.calls.last.request.content) == {"error": "image service down"}
+
+
+def test_release_element_accepts_uuid(client: QueueClient, httpx2_mock: respx.Router):
+    route = httpx2_mock.post(f"{BASE_URL}/api/queue/{ELEMENT_ID}/release").respond(status_code=204)
+
+    client.release_element(uuid.UUID(ELEMENT_ID))
+
+    assert route.called
+
+
+def test_release_element_without_error(client: QueueClient, httpx2_mock: respx.Router):
+    route = httpx2_mock.post(f"{BASE_URL}/api/queue/{ELEMENT_ID}/release").respond(status_code=204)
+
+    client.release_element(ELEMENT_ID)
+
+    assert json.loads(route.calls.last.request.content) == {"error": None}
+
+
+def test_release_element_not_found(client: QueueClient, httpx2_mock: respx.Router):
+    httpx2_mock.post(f"{BASE_URL}/api/queue/{ELEMENT_ID}/release").respond(
+        status_code=404, json={"detail": "not found"}
+    )
+
+    with pytest.raises(
+        QueueClientElementNotFoundException, match=f"Queue element '{ELEMENT_ID}' not found"
+    ) as exc:
+        client.release_element(ELEMENT_ID, error="boom")
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.parametrize("status_code", [400, 500, 503])
+def test_release_element_http_error(
+    client: QueueClient, status_code: int, httpx2_mock: respx.Router
+):
+    httpx2_mock.post(f"{BASE_URL}/api/queue/{ELEMENT_ID}/release").respond(
+        status_code=status_code, text="Something went wrong"
+    )
+
+    with pytest.raises(QueueClientException) as exc:
+        client.release_element(ELEMENT_ID, error="boom")
+
+    assert not isinstance(exc.value, QueueClientElementNotFoundException)
+    assert exc.value.status_code == status_code
+
+
+def test_release_element_connection_error(client: QueueClient, httpx2_mock: respx.Router):
+    httpx2_mock.post(f"{BASE_URL}/api/queue/{ELEMENT_ID}/release").mock(
+        side_effect=httpx2.ConnectError("Connection refused")
+    )
+
+    with pytest.raises(QueueClientConnectionException):
+        client.release_element(ELEMENT_ID, error="boom")
+
+
+def test_release_element_timeout(client: QueueClient, httpx2_mock: respx.Router):
+    httpx2_mock.post(f"{BASE_URL}/api/queue/{ELEMENT_ID}/release").mock(
+        side_effect=httpx2.ReadTimeout("timed out")
+    )
+
+    with pytest.raises(QueueClientTimeoutException):
+        client.release_element(ELEMENT_ID, error="boom")

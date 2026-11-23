@@ -423,3 +423,58 @@ def test_base_url_trailing_slash_is_stripped(httpx2_mock: respx.Router):
     client = SimulationResultClient(f"{BASE_URL}/")
 
     assert client.base_url == BASE_URL
+
+
+def test_create_result_sends_idempotency_key(
+    client: SimulationResultClient, httpx2_mock: respx.Router
+):
+    route = httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+        status_code=200, json=RESULT_RESPONSE
+    )
+
+    client.create_result(
+        parameters={"foo": "bar"},
+        image_id="image-123",
+        issued_at=datetime(2026, 9, 18, 10, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 9, 18, 10, 5, tzinfo=UTC),
+        idempotency_key="sim-1:create_result",
+    )
+
+    assert route.calls.last.request.headers["idempotency-key"] == "sim-1:create_result"
+
+
+def test_create_result_without_idempotency_key_sends_no_header(
+    client: SimulationResultClient, httpx2_mock: respx.Router
+):
+    route = httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+        status_code=200, json=RESULT_RESPONSE
+    )
+
+    client.create_result(
+        parameters={"foo": "bar"},
+        image_id="image-123",
+        issued_at=datetime(2026, 9, 18, 10, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 9, 18, 10, 5, tzinfo=UTC),
+    )
+
+    assert "idempotency-key" not in route.calls.last.request.headers
+
+
+def test_create_result_replay_returns_stored_result(
+    client: SimulationResultClient, httpx2_mock: respx.Router
+):
+    # the service answers a repeated key with the result stored by the first call
+    httpx2_mock.post(f"{BASE_URL}/api/result").respond(
+        status_code=200, json={**RESULT_RESPONSE, "image_id": "image-first"}
+    )
+
+    result = client.create_result(
+        parameters={"foo": "bar"},
+        image_id="image-second",
+        issued_at=datetime(2026, 9, 18, 10, 0, tzinfo=UTC),
+        completed_at=datetime(2026, 9, 18, 10, 5, tzinfo=UTC),
+        idempotency_key="sim-1:create_result",
+    )
+
+    assert result.id == uuid.UUID(RESULT_ID)
+    assert result.image_id == "image-first"
