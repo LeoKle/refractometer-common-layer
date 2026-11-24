@@ -1,4 +1,5 @@
-from typing import Any
+from types import TracebackType
+from typing import Any, Self
 
 import httpx2
 from pydantic import ValidationError
@@ -15,11 +16,44 @@ from refractometer_common.spectrum.interfaces.spectrum_client_interface import (
 )
 from refractometer_common.spectrum.spectrum import Spectrum
 
+# Keep every pooled connection alive: callers (e.g. the API gateway threadpool) issue many
+# concurrent requests, and httpx2's default of 20 keep-alive connections causes connection churn.
+DEFAULT_LIMITS = httpx2.Limits(max_connections=100, max_keepalive_connections=100)
+
 
 class SpectrumClient(SpectrumClientInterface):
-    def __init__(self, base_url: str, timeout: float = 10.0):
+    def __init__(
+        self,
+        base_url: str,
+        timeout: float = 10.0,
+        *,
+        http_client: httpx2.Client | None = None,
+        limits: httpx2.Limits | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self._owns_client = http_client is None
+        self._client = (
+            http_client
+            if http_client is not None
+            else httpx2.Client(timeout=timeout, limits=limits or DEFAULT_LIMITS)
+        )
+
+    def close(self) -> None:
+        """Close the underlying connection pool if this instance created it."""
+        if self._owns_client:
+            self._client.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.close()
 
     def get_all_spectrums(self) -> list[Spectrum]:
         response = self._request("GET", "/api/spectrums")
@@ -72,8 +106,7 @@ class SpectrumClient(SpectrumClientInterface):
         url = f"{self.base_url}{path}"
 
         try:
-            with httpx2.Client(timeout=self.timeout) as client:
-                response = client.request(method, url, json=json)
+            response = self._client.request(method, url, json=json, timeout=self.timeout)
             response.raise_for_status()
         except httpx2.TimeoutException as ex:  # must come before RequestError
             msg = f"{method} {url} timed out after {self.timeout}s"

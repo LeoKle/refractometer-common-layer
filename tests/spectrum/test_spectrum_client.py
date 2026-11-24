@@ -537,3 +537,73 @@ def test_custom_timeout_is_stored():
     client = SpectrumClient(BASE_URL, timeout=2.5)
 
     assert math.isclose(client.timeout, 2.5, abs_tol=1e-9)
+
+
+def test_http_client_is_created_once_and_reused(
+    monkeypatch: pytest.MonkeyPatch, httpx2_mock: respx.Router
+):
+    created: list[httpx2.Client] = []
+    original_client = httpx2.Client
+
+    def counting_client(*args, **kwargs):
+        instance = original_client(*args, **kwargs)
+        created.append(instance)
+        return instance
+
+    monkeypatch.setattr(httpx2, "Client", counting_client)
+
+    httpx2_mock.get(f"{BASE_URL}/api/spectrums").respond(status_code=200, json=[])
+
+    client = SpectrumClient(BASE_URL)
+    for _ in range(5):
+        client.get_all_spectrums()
+
+    assert len(created) == 1
+
+
+def test_injected_http_client_is_used_and_not_closed():
+    calls: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        calls.append(request)
+        return httpx2.Response(200, json=[])
+
+    http_client = httpx2.Client(transport=httpx2.MockTransport(handler))
+    client = SpectrumClient(BASE_URL, http_client=http_client)
+
+    client.get_all_spectrums()
+    client.get_all_spectrums()
+    client.close()
+
+    assert len(calls) == 2
+    assert str(calls[0].url) == f"{BASE_URL}/api/spectrums"
+    assert not http_client.is_closed
+    http_client.close()
+
+
+def test_close_closes_owned_http_client():
+    client = SpectrumClient(BASE_URL)
+
+    client.close()
+
+    assert client._client.is_closed
+
+
+def test_context_manager_closes_owned_http_client():
+    with SpectrumClient(BASE_URL) as client:
+        assert not client._client.is_closed
+
+    assert client._client.is_closed
+
+
+def test_per_request_timeout_is_applied_to_injected_client():
+    seen: list[dict] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request.extensions["timeout"])
+        return httpx2.Response(200, json=[])
+
+    http_client = httpx2.Client(transport=httpx2.MockTransport(handler), timeout=99.0)
+    SpectrumClient(BASE_URL, timeout=1.5, http_client=http_client).get_all_spectrums()
+
+    assert seen[0]["read"] == pytest.approx(1.5)
